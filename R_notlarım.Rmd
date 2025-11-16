@@ -1,0 +1,293 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+411 R için R notları
+KOD BLOĞU 1: Veri Çerçevesi Oluşturma ve Ön İşleme
+```{r}
+# Gerekli paket
+install.packages("writexl") # Sadece bir kez kurulur
+library(writexl)
+library(readxl)
+library(dplyr)
+# Öğrenci başarı verisi
+ogrenci <- data.frame(
+Ad = c("Ali", "Ayse", "Mehmet", "Zeynep"),
+Cinsiyet = c("Erkek", "Kadin", "Erkek", "Kadin"),
+Matematik = c(85, 92, 60, 70),
+Fizik = c(78, 88, 55, 75),
+Kimya = c(90, 95, 58, 80),
+ID = seq(1, 4, by=1),
+ID2 = 1:4
+)
+ogrenci <- select(ogrenci, -ID2) #sütun silme
+ogrenci <- ogrenci[-2,] #satır silme
+```
+3. NE İŞE YARIYOR: Bu kod bloğu, veri manipülasyonu için gerekli paketleri yükler ve küçük bir öğrenci veri seti oluşturur.
+    ◦ İlk olarak, writexl, readxl, ve dplyr paketlerini yükler ve aktive eder (install.packages sadece bir kere kurulur, library ise paketi kullanıma açar).
+    ◦ ogrenci adında 4 satır ve 7 sütundan (Ad, Cinsiyet, Matematik, Fizik, Kimya, ID, ID2) oluşan bir veri çerçevesi (data frame) oluşturulur.
+    ◦ dplyr::select(ogrenci, -ID2) komutu kullanılarak ID2 sütunu silinir.
+    ◦ ogrenci[-2,] komutu kullanılarak veri çerçevesinin ikinci satırı silinir (Ayşe'ye ait satır).
+4. BEKLENEN ÇIKTI: Görünür bir çıktı üretmez. Paketler yüklenirken ve data frame oluşturulurken mesajlar veya uyarılar görünebilir, ancak veri çerçevesinin kendisi konsola yazdırılmaz.
+5. YORUM VE ANALİZ: Bu blok, R'da temel veri hazırlama adımlarını gösterir. dplyr paketindeki select fonksiyonu, sütunları isme göre kolayca silmek veya seçmek için kullanılırken, R'ın temel indeksleme yapısı (ogrenci[-2,]) satırları silmek için kullanılabilir. Dikkat Edilmesi Gereken Nokta: Satır silme işleminden sonra veri setinde sadece Ali, Mehmet ve Zeynep'e ait veriler kalmış olur (Ayşe'nin verisi silinir). Bu, sonraki analizlerin 3 öğrenci üzerinden yapılacağı anlamına gelir.
+
+KOD BLOĞU 2: Hesaplama, Koşullu Sınıflandırma ve Dosya İşlemleri
+```{r}
+# Ortalama not hesaplama
+ogrenci$Ortalama <- rowMeans(ogrenci[, c("Matematik", "Fizik", "Kimya")])
+# Başarı durumu sınıflandırma
+ogrenci$Basari_Durumu <- ifelse(
+ogrenci$Ortalama >= 80, "Yuksek",
+ifelse(ogrenci$Ortalama >= 60, "Orta", "Dusuk")
+)
+# Excel dosyasına yazma
+write_xlsx(ogrenci, path = "ogrenci_basarilari.xlsx")
+data_ogrenci <- read_xlsx("ogrenci_basarilari.xlsx")
+str(data_ogrenci)
+summary(data_ogrenci)
+library(dplyr)
+# Ortalama not hesaplama
+data_ogrenci <- data_ogrenci %>%
+mutate(Ortalama2 = rowMeans(select(., Matematik, Fizik, Kimya)))
+```
+
+3. NE İŞE YARIYOR: Bu blok, mevcut öğrenci verilerine hesaplanmış değişkenler ekler, dosyaya yazar ve tekrar okur.
+    ◦ Ortalama Hesaplama: rowMeans fonksiyonu kullanılarak "Matematik", "Fizik" ve "Kimya" notlarının satır bazında ortalaması hesaplanır ve Ortalama adında yeni bir sütuna atanır.
+    ◦ Başarı Durumu Sınıflandırması: İç içe geçmiş ifelse komutları ile öğrencilerin ortalama notlarına göre başarı durumları ("Yuksek" (>= 80), "Orta" (>= 60), "Dusuk" (< 60)) belirlenir.
+    ◦ Excel İşlemleri: Güncel ogrenci verisi ogrenci_basarilari.xlsx adında bir Excel dosyasına yazılır ve hemen ardından read_xlsx ile data_ogrenci adıyla tekrar okunur.
+    ◦ str(data_ogrenci) ve summary(data_ogrenci) komutları veri setinin yapısını ve özet istatistiklerini gösterir.
+    ◦ dplyr::mutate kullanılarak aynı ortalama hesaplaması (Ortalama2) farklı bir yöntemle (pipe %>% ve select kullanarak) tekrar yapılır.
+4. BEKLENEN ÇIKTI: str(data_ogrenci) çıktısı: Veri setinin yapısını (sütun isimleri, veri tipleri, kaç gözlem olduğu) gösterir. summary(data_ogrenci) çıktısı: Her sütun için özet istatistikleri (minimum, maksimum, medyan, ortalama, niceleyiciler vb.) gösterir. Karakter veya faktör değişkenler için (Ad, Cinsiyet, Basari_Durumu) ise kaç adet olduklarını veya veri tipini gösterir.
+5. YORUM VE ANALİZ: Bu blok, R'da veri zenginleştirmeyi gösterir. Özellikle iç içe ifelse kullanımı karmaşık koşullu atamalar için temel bir yöntemdir. Verinin Excel'e yazılıp tekrar okunması, verilerin depolanma ve farklı oturumlarda tekrar yüklenme sürecini simüle eder. Önemli İpucu: rowMeans(ogrenci[, c("Matematik", "Fizik", "Kimya")]) ile mutate(Ortalama2 = rowMeans(select(., Matematik, Fizik, Kimya))) komutları aynı sonucu üretir; ancak dplyr::mutate ile kullanılan ikinci yöntem, pipe (%>%) operatörü sayesinde kodun akışını daha okunaklı hale getirir.
+
+KOD BLOĞU 3: Veri Filtreleme, Sıralama ve Faktör Dönüşümü
+```{r}
+# Matematik notu 70 üzeri olanları filtrele
+ogrenci_yuksek <- data_ogrenci %>%
+filter(Matematik > 70)
+# En yüksek ortalamaya sahip öğrenci
+top_ogrenci <- data_ogrenci %>%
+arrange(desc(Ortalama)) %>% slice(1) #arrange sıralama, desc büyükten küçüğe(azalan), slice(1)
+# Sayısal sosyoekonomik durum ekleme
+data_ogrenci$sosyo_kod <- c(1, 3, 2) # örnek: Ali=1 (düşük), Ayşe=3 (yüksek),Mehmet=1,Zeynep=2,
+# Faktör olarak etiketleme
+data_ogrenci$sosyo_ekonomi <- factor(data_ogrenci$sosyo_kod,
+levels = c(1, 2, 3),
+labels = c("Dusuk", "Orta", "Yuksek"))
+library(ggplot2)
+# Ortalama dağılımı histogram
+ggplot(data_ogrenci, aes(x = Ortalama)) +
+geom_histogram(binwidth = 6, fill = "skyblue", color = "black") +
+labs(title = "Öğrenci Ortalama Dağılımı", x = "Ortalama Not", y = "Frekans")
+# Cinsiyete göre kutu grafiği
+ggplot(data_ogrenci, aes(x = Cinsiyet, y = Ortalama, fill = Cinsiyet)) +
+geom_boxplot() +
+labs(title = "Cinsiyete Göre Basarı Dağılımı")
+```
+
+
+3. NE İŞE YARIYOR: Bu blok, dplyr paketinin temel manipülasyon fonksiyonlarını (filtreleme, sıralama) kullanarak veriyi alt kümelere ayırır ve yeni bir kategorik değişken oluşturur.
+    ◦ ogrenci_yuksek değişkeni, data_ogrenci içinden Matematik notu 70'ten büyük olan öğrencileri filtreler.
+    ◦ top_ogrenci değişkeni, data_ogrenci içindeki öğrencileri Ortalama sütununa göre büyükten küçüğe (azalan, desc) sıralar (arrange) ve sonra en üstteki ilk satırı (slice(1)) seçer; yani en yüksek ortalamaya sahip öğrenciyi bulur.
+    ◦ data_ogrenci veri setine sosyo_kod (sayısal) adında yeni bir sütun eklenir (1, 3, 1, 2 değerleriyle).
+    ◦ Bu sayısal kod, factor fonksiyonu kullanılarak sosyo_ekonomi adında kategorik (faktör) bir değişkene dönüştürülür. levels (1, 2, 3) ve labels ("Dusuk", "Orta", "Yuksek") belirlenir.
+4. BEKLENEN ÇIKTI: Görünür bir çıktı üretmez. Yeni veri çerçeveleri (ogrenci_yuksek, top_ogrenci) ve sütunlar oluşturulur, ancak konsola otomatik olarak yazdırılmazlar.
+5. YORUM VE ANALİZ: Bu işlemler, analiz öncesi veri hazırlığının kritik adımlarıdır. Faktör değişkenlerin doğru şekilde etiketlenmesi (labels) ve seviyelerinin (levels) tanımlanması, daha sonra yapılacak istatistiksel testler ve görselleştirmeler için önemlidir. Önemli İpucu: arrange() fonksiyonu sıralama yaparken, desc() (azalan) kullanılmazsa sıralama varsayılan olarak küçükten büyüğe (artan) olacaktır. slice(1) ise her zaman sıralanmış veri setinin birinci satırını (bu durumda en yüksek ortalamaya sahip öğrenciyi) döndürür.
+
+KOD BLOĞU 4: Görselleştirme (Histogram ve Kutu Grafiği)
+```{r}
+levels = c(1, 2, 3)
+labels = c("Dusuk", "Orta", "Yuksek")
+library(ggplot2)
+# Ortalama dağılımı histogram
+ggplot(data_ogrenci, aes(x = Ortalama)) +
+geom_histogram(binwidth = 6, fill = "skyblue", color = "black") +
+labs(title = "Öğrenci Ortalama Dağılımı", x = "Ortalama Not", y = "Frekans")
+# Cinsiyete göre kutu grafiği
+ggplot(data_ogrenci, aes(x = Cinsiyet, y = Ortalama, fill = Cinsiyet)) +
+geom_boxplot() +
+labs(title = "Cinsiyete Göre Basarı Dağılımı")
+```
+3. NE İŞE YARIYOR: Bu blok, ggplot2 paketi kullanılarak data_ogrenci veri setindeki değişkenlerin dağılımlarını görselleştirir.
+    ◦ İlk kısım, öğrencilerin Ortalama notlarının dağılımını gösteren bir histogram çizer. binwidth = 6 (kutu genişliği 6) ayarlanmıştır. Başlıklar ve eksen etiketleri labs ile belirlenir.
+    ◦ İkinci kısım, Cinsiyet değişkenine göre Ortalama notlarının dağılımını gösteren bir kutu grafiği (geom_boxplot()) çizer. Kutu grafiklerinin dolgu rengi (fill) cinsiyete göre ayrılmıştır.
+4. BEKLENEN ÇIKTI: R grafik penceresinde (veya uygun bir çıktı aygıtında) iki adet grafik üretilir:
+    1. "Öğrenci Ortalama Dağılımı" başlıklı bir histogram.
+    2. "Cinsiyete Göre Başarı Dağılımı" başlıklı bir kutu grafiği.
+5. YORUM VE ANALİZ: ggplot2, R'daki en popüler görselleştirme kütüphanesidir. Grafikler, veri setindeki dağılımı ve gruplar arası karşılaştırmayı görsel olarak hızlıca anlamak için kullanılır. Histogram: Tek bir sürekli değişkenin (Ortalama) dağılım şeklini, merkezini ve yayılımını görmemizi sağlar. Kutu Grafiği (Boxplot): Kategorik bir değişkendeki (Cinsiyet) farklı grupların, sürekli bir değişken (Ortalama) üzerindeki medyan, çeyreklikler (quartiles) ve aykırı değerlerini karşılaştırmayı sağlar.
+
+KOD BLOĞU 5: Sosyoekonomik Durum Pasta Grafiği
+```{r}
+# Sosyoekonomik durumların pasta grafiği
+ggplot(data_ogrenci, aes(x = "", fill = sosyo_ekonomi)) +
+geom_bar(width = 1) +
+coord_polar("y") +
+theme_void()
+```
+3. NE İŞE YARIYOR: Bu blok, 60 gözlemden oluşan büyük ve rastgele bir öğrenci veri seti simüle eder ve temel özetleri ile görselleştirmelerini yapar.
+    ◦ Gerekli paketler (dplyr, ggplot2, car) yüklenir.
+    ◦ set.seed(123) komutu, rastgele sayı üretimini sabitler, böylece kod her çalıştırıldığında aynı simülasyon sonuçları elde edilir.
+    ◦ n=60 olarak belirlenir ve ogr veri çerçevesi oluşturulur.
+    ◦ Notlar (Matematik, Fizik, Kimya), belirli ortalama (mean) ve standart sapma (sd) değerleri kullanılarak normal dağılıma uygun olarak (rnorm) rastgele üretilir.
+    ◦ Pipe (%>%) ile devam edilerek mutate fonksiyonu içinde sosyo_kod değişkeni kategorik faktöre (sosyo_ekonomi) dönüştürülür ve satır ortalamaları hesaplanarak Ortalama değişkeni oluşturulur.
+    ◦ str(ogr) ve summary(ogr$Ortalama) ile veri yapısı ve Ortalama değişkeninin özet istatistikleri gösterilir.
+    ◦ Ortalama dağılımının histogramı ve cinsiyete göre ortalama notların kutu grafiği çizilir.
+4. BEKLENEN ÇIKTI: str(ogr) çıktısı: 60 gözlem (öğrenci) ve 8 değişken (Ad, Cinsiyet, Matematik, Fizik, Kimya, sosyo_kod, sosyo_ekonomi, Ortalama) içeren veri çerçevesinin yapısını gösterir. summary(ogr$Ortalama) çıktısı: Ortalama notlar için Minimum, 1. Çeyreklik, Medyan, Ortalama, 3. Çeyreklik ve Maksimum değerleri gösteren özet istatistikler. Ayrıca R grafik penceresinde iki görsel (Histogram ve Kutu Grafiği) üretilir.
+5. YORUM VE ANALİZ: Bu kod, istatistiksel analizlere başlamadan önce verinin hazırlanmasını ve ilk kontrollerinin yapılmasını sağlar. set.seed() Kullanımı: Veri rastgele üretildiği için, tohumun (seed) sabitlenmesi, tekrarlanabilir araştırma için hayati öneme sahiptir. pick() Fonksiyonu: dplyr::mutate içinde rowMeans ile beraber pick kullanılması, belirli sütunları seçerek sadece o sütunlar üzerinden satır ortalaması hesaplamayı sağlar
+KOD BLOĞU 6: Simüle Edilmiş Veri Üretimi ve Özet İstatistikler
+```{r}
+# Gerekli paketler
+library(dplyr)
+library(ggplot2)
+library(car) # Levene testi (varyans homojenliği) için
+set.seed(123)
+n <- 60
+ogr <- data.frame(
+Ad = paste0("Ogr", seq_len(n)),
+Cinsiyet = sample(c("Erkek", "Kadin"), n, replace = TRUE),
+Matematik = rnorm(n, mean = 75, sd = 10),
+Fizik = rnorm(n, mean = 70, sd = 12),
+Kimya = rnorm(n, mean = 72, sd = 11),
+sosyo_kod = sample(1:3, n, replace = TRUE)
+) %>%
+mutate(
+sosyo_ekonomi = factor(sosyo_kod, levels = c(1,2,3),
+labels = c("Dusuk","Orta","Yuksek")),
+Ortalama = rowMeans(pick(Matematik, Fizik, Kimya))
+)
+str(ogr)
+summary(ogr$Ortalama)
+# Ortalama histogramı
+ggplot(ogr, aes(Ortalama)) +
+geom_histogram(binwidth = 5, color = "black", fill = "skyblue") +
+labs(title = "Ortalama Not Dağılımı", x = "Ortalama", y = "Frekans")
+# Cinsiyete göre kutu grafiği
+ggplot(ogr, aes(Cinsiyet, Ortalama, fill = Cinsiyet)) +
+geom_boxplot() + labs(title = "Cinsiyete Göre Ortalama")
+```
+3. NE İŞE YARIYOR: Bu blok, 60 gözlemden oluşan büyük ve rastgele bir öğrenci veri seti simüle eder ve temel özetleri ile görselleştirmelerini yapar.
+    ◦ Gerekli paketler (dplyr, ggplot2, car) yüklenir.
+    ◦ set.seed(123) komutu, rastgele sayı üretimini sabitler, böylece kod her çalıştırıldığında aynı simülasyon sonuçları elde edilir.
+    ◦ n=60 olarak belirlenir ve ogr veri çerçevesi oluşturulur.
+    ◦ Notlar (Matematik, Fizik, Kimya), belirli ortalama (mean) ve standart sapma (sd) değerleri kullanılarak normal dağılıma uygun olarak (rnorm) rastgele üretilir.
+    ◦ Pipe (%>%) ile devam edilerek mutate fonksiyonu içinde sosyo_kod değişkeni kategorik faktöre (sosyo_ekonomi) dönüştürülür ve satır ortalamaları hesaplanarak Ortalama değişkeni oluşturulur.
+    ◦ str(ogr) ve summary(ogr$Ortalama) ile veri yapısı ve Ortalama değişkeninin özet istatistikleri gösterilir.
+    ◦ Ortalama dağılımının histogramı ve cinsiyete göre ortalama notların kutu grafiği çizilir.
+4. BEKLENEN ÇIKTI: str(ogr) çıktısı: 60 gözlem (öğrenci) ve 8 değişken (Ad, Cinsiyet, Matematik, Fizik, Kimya, sosyo_kod, sosyo_ekonomi, Ortalama) içeren veri çerçevesinin yapısını gösterir. summary(ogr$Ortalama) çıktısı: Ortalama notlar için Minimum, 1. Çeyreklik, Medyan, Ortalama, 3. Çeyreklik ve Maksimum değerleri gösteren özet istatistikler. Ayrıca R grafik penceresinde iki görsel (Histogram ve Kutu Grafiği) üretilir.
+5. YORUM VE ANALİZ: Bu kod, istatistiksel analizlere başlamadan önce verinin hazırlanmasını ve ilk kontrollerinin yapılmasını sağlar. set.seed() Kullanımı: Veri rastgele üretildiği için, tohumun (seed) sabitlenmesi, tekrarlanabilir araştırma için hayati öneme sahiptir. pick() Fonksiyonu: dplyr::mutate içinde rowMeans ile beraber pick kullanılması, belirli sütunları seçerek sadece o sütunlar üzerinden satır ortalaması hesaplamayı sağlar.
+
+
+
+KOD BLOĞU 7: Normallik Testleri ve Görsel Kontrol (Q-Q Grafiği)
+```{r}
+# 3.1 Genel normallik: Shapiro-Wilk
+shapiro.test(ogr$Ortalama) # n <= 5000 ise uygun
+# 3.2 Gruplara göre normallik (Cinsiyet)
+by(ogr$Ortalama, ogr$Cinsiyet, shapiro.test)
+# 3.3 Gruplara göre normallik (Sosyoekonomi)
+by(ogr$Ortalama, ogr$sosyo_ekonomi, shapiro.test)
+# 3.4 Q-Q grafikleri (görsel kontrol)
+ggplot(ogr, aes(sample = Ortalama)) +
+stat_qq() + stat_qq_line() + facet_wrap(~ Cinsiyet) +
+labs(title = "Q-Q Plot (Cinsiyete Göre)")
+# Levene testi (Cinsiyet'e göre varyans homojenliği)
+car::leveneTest(Ortalama ~ Cinsiyet, data = ogr)
+```
+3. NE İŞE YARIYOR: Bu blok, istatistiksel testler için temel varsayımlardan biri olan normallik varsayımının test edilmesini sağlar.
+    ◦ Genel Shapiro-Wilk Testi: ogr$Ortalama değişkeninin tümü için normallik varsayımı test edilir. Bu test, örneklem büyüklüğü 5000 veya daha az olduğunda uygundur.
+    ◦ Gruplara Göre Normallik: by fonksiyonu kullanılarak Ortalama notları, önce Cinsiyet gruplarına, ardından sosyo_ekonomi gruplarına ayrılır ve her bir grup için ayrı ayrı Shapiro-Wilk testi uygulanır.
+    ◦ Q-Q Grafikleri: ggplot2 kullanılarak Ortalama değişkeni için Q-Q (Quantile-Quantile) grafikleri çizilir. facet_wrap(~ Cinsiyet) komutu, cinsiyete göre ayrı panellerde görsel kontrol yapılmasını sağlar.
+4. BEKLENEN ÇIKTI: Konsolda üç adet istatistiksel test sonucu görünür. Her bir Shapiro-Wilk testi, bir W istatistiği ve bir p-değeri döndürür. Ayrıca R grafik penceresinde, verilerin teorik normal dağılıma ne kadar uyduğunu gösteren bir Q-Q Grafiği üretilir.
+5. YORUM VE ANALİZ: Normallik, parametrik testlerin (örneğin t-testi, ANOVA) temel varsayımıdır. Shapiro-Wilk Testi: p-değerinin genellikle 0.05'ten küçük olması, verinin normal dağılmadığı anlamına gelir. Gruplara göre normallik testi, özellikle ANOVA gibi gruplar arası karşılaştırma testleri öncesinde önemlidir. Q-Q Grafiği: Veri noktalarının düz bir çizgi üzerinde toplanması, normalliğe dair görsel kanıt sağlar. Bu, test sonuçlarına ek olarak görsel bir kontrol yöntemidir.
+
+KOD BLOĞU 8: Varyans Homojenliği Testleri (Levene Testi)
+```{r}
+# 3.1 Genel normallik: Shapiro-Wilk
+shapiro.test(ogr$Ortalama) # n <= 5000 ise uygun
+# 3.2 Gruplara göre normallik (Cinsiyet)
+by(ogr$Ortalama, ogr$Cinsiyet, shapiro.test)
+# 3.3 Gruplara göre normallik (Sosyoekonomi)
+by(ogr$Ortalama, ogr$sosyo_ekonomi, shapiro.test)
+# 3.4 Q-Q grafikleri (görsel kontrol)
+ggplot(ogr, aes(sample = Ortalama)) +
+stat_qq() + stat_qq_line() + facet_wrap(~ Cinsiyet) +
+labs(title = "Q-Q Plot (Cinsiyete Göre)")
+# Levene testi (Cinsiyet'e göre varyans homojenliği)
+car::leveneTest(Ortalama ~ Cinsiyet, data = ogr)
+# Levene testi (Sosyoekonomi'ye göre)
+car::leveneTest(Ortalama ~ sosyo_ekonomi, data = ogr)
+# 4.1 Parametrik: İki örneklem t-testi
+# - Normallik sağlanıyorsa ve varyanslar homojen ise: var.equal=TRUE
+# - Aksi durumda Welch t-testi (varsayılan)
+t_test <- t.test(Ortalama ~ Cinsiyet, data = ogr) # Welch
+t_test_homojen <- t.test(Ortalama ~ Cinsiyet, data = ogr, var.equal = TRUE) # Homojen varsayımıyla
+t_test
+t_test_homojen
+```
+3. NE İŞE YARIYOR: Bu blok, parametrik testlerin (t-testi, ANOVA) bir diğer önemli varsayımı olan varyans homojenliğini (grupların varyanslarının eşit olması) test eder.
+    ◦ car paketinden çağrılan leveneTest fonksiyonu kullanılır.
+    ◦ İlk test, Ortalama değişkeninin Cinsiyet grupları arasında varyansının homojen olup olmadığını inceler.
+    ◦ İkinci test, Ortalama değişkeninin sosyo_ekonomi grupları arasında varyansının homojen olup olmadığını inceler.
+4. BEKLENEN ÇIKTI: Konsolda iki adet Levene Testi sonucu görünür. Her test bir F istatistiği, serbestlik dereceleri (Df) ve bir p-değeri döndürür.
+5. YORUM VE ANALİZ: Varyans homojenliği, gruplar arasındaki farkları test eden parametrik istatistikler için kritik bir varsayımdır. Test Yorumu: Levene testinde p-değeri, genellikle 0.05'ten büyükse, varyanslar arasında anlamlı bir fark yoktur ve homojenlik varsayımı sağlanmıştır. Eğer p-değeri küçükse (homojenlik sağlanmazsa), t-testi yerine Welch t-testi kullanılmalı veya parametrik olmayan testlere geçilmelidir.
+
+KOD BLOĞU 9: İki Örneklem Karşılaştırma Testleri (t-testi ve Wilcoxon)
+```{r}
+# Levene testi (Sosyoekonomi'ye göre)
+car::leveneTest(Ortalama ~ sosyo_ekonomi, data = ogr)
+# 4.1 Parametrik: İki örneklem t-testi
+# - Normallik sağlanıyorsa ve varyanslar homojen ise: var.equal=TRUE
+# - Aksi durumda Welch t-testi (varsayılan)
+t_test <- t.test(Ortalama ~ Cinsiyet, data = ogr) # Welch
+t_test_homojen <- t.test(Ortalama ~ Cinsiyet, data = ogr, var.equal = TRUE) # Homojen varsayımıyla
+t_test
+t_test_homojen
+# 4.2 Parametrik olmayan: Mann-Whitney U (Wilcoxon rank-sum)
+wilcox_test <- wilcox.test(Ortalama ~ Cinsiyet, data = ogr, exact = FALSE)
+wilcox_test
+# 5.1 Parametrik: Tek Yönlü ANOVA
+anova_fit <- aov(Ortalama ~ sosyo_ekonomi, data = ogr)
+summary(anova_fit)
+# ANOVA sonrası çoklu karşılaştırma (Tukey)
+TukeyHSD(anova_fit)
+# 5.2 Parametrik olmayan: Kruskal-Wallis
+kw <- kruskal.test(Ortalama ~ sosyo_ekonomi, data = ogr)
+kw
+# Kruskal-Wallis sonrası ikili karşılaştırmalar (p-değerlerini düzelt)
+pairwise.wilcox.test(ogr$Ortalama, ogr$sosyo_ekonomi, p.adjust.method = "BH")
+```
+3. NE İŞE YARIYOR: Bu blok, iki grup arasındaki ortalama farkını test etmek için hem parametrik hem de parametrik olmayan yöntemleri uygular. Bu testler, Cinsiyet gruplarının Ortalama notları arasında istatistiksel olarak anlamlı bir fark olup olmadığını inceler.
+    ◦ Welch t-testi: var.equal = FALSE (varsayılan) ile çalışır ve varyansların homojen olmadığı durumlarda kullanılır.
+    ◦ Homojen Varsayımıyla t-testi: var.equal = TRUE parametresi kullanılarak, varyansların eşit olduğu varsayımıyla standart t-testi uygulanır.
+    ◦ Wilcoxon (Mann-Whitney U) Testi: Veri normallik varsayımını karşılamadığında veya sıralı veri olduğunda kullanılan parametrik olmayan alternatiftir.
+4. BEKLENEN ÇIKTI: Konsolda üç ayrı istatistiksel test sonucu görünür. Her biri (t-testleri ve Wilcoxon), bir test istatistiği (t veya W), serbestlik derecesi (df), p-değeri ve grupların tahmini ortalama farklarını (veya medyan farklarını) gösterir.
+5. YORUM VE ANALİZ: Hangi testin seçileceği, önceki bloklarda yapılan normallik ve varyans homojenliği testlerine bağlıdır. Parametrik vs. Parametrik Olmayan: Eğer varsayımlar (normallik ve homojenlik) sağlanıyorsa t-testi (homojen varsayımlı) kullanılır. Eğer sadece normallik sağlanıyorsa veya örneklem büyüklüğü yeterli değilse, Welch t-testi veya parametrik olmayan Mann-Whitney U (Wilcoxon) testi tercih edilir.
+KOD BLOĞU 10: Çoklu Örneklem Karşılaştırma Testleri (ANOVA ve Kruskal-Wallis)
+```{r}
+wilcox_test <- wilcox.test(Ortalama ~ Cinsiyet, data = ogr, exact = FALSE)
+wilcox_test
+# 5.1 Parametrik: Tek Yönlü ANOVA
+anova_fit <- aov(Ortalama ~ sosyo_ekonomi, data = ogr)
+summary(anova_fit)
+# ANOVA sonrası çoklu karşılaştırma (Tukey)
+TukeyHSD(anova_fit)
+# 5.2 Parametrik olmayan: Kruskal-Wallis
+kw <- kruskal.test(Ortalama ~ sosyo_ekonomi, data = ogr)
+kw
+# Kruskal-Wallis sonrası ikili karşılaştırmalar (p-değerlerini düzelt)
+pairwise.wilcox.test(ogr$Ortalama, ogr$sosyo_ekonomi, p.adjust.method = "BH")
+```
+3. NE İŞE YARIYOR: Bu blok, ikiden fazla grup arasındaki ortalama/medyan farkını test etmek için parametrik (ANOVA) ve parametrik olmayan (Kruskal-Wallis) yöntemleri kullanır. Burada sosyo_ekonomi (Düşük, Orta, Yüksek) gruplarının Ortalama notları karşılaştırılır.
+    ◦ Tek Yönlü ANOVA: aov fonksiyonu ile parametrik analiz yapılır ve sonuç summary(anova_fit) ile özetlenir.
+    ◦ Tukey Çoklu Karşılaştırmalar (Post-hoc): ANOVA sonucunun anlamlı çıkması durumunda, hangi grup çiftleri arasında fark olduğunu bulmak için TukeyHSD testi uygulanır.
+    ◦ Kruskal-Wallis Testi: ANOVA varsayımları (özellikle normallik) sağlanmadığında kullanılan parametrik olmayan testtir.
+    ◦ Wilcoxon İkili Karşılaştırmalar: Kruskal-Wallis sonucunun anlamlı çıkması durumunda, gruplar arası ikili karşılaştırmalar yapılır ve p-değerleri "BH" (Benjamini-Hochberg) metodu ile çoklu karşılaştırmaya göre düzeltilir.
+4. BEKLENEN ÇIKTI: Konsolda dört ayrı sonuç görünür:
+    1. ANOVA Özeti: Kareler toplamı, serbestlik dereceleri, F istatistiği ve p-değeri içeren bir tablo.
+    2. TukeyHSD: Tüm grup çiftleri arasındaki ortalama farkları, güven aralıklarını ve düzeltilmiş p-değerlerini gösteren bir tablo.
+    3. Kruskal-Wallis: Ki-kare istatistiği, serbestlik derecesi ve p-değeri.
+    4. Pairwise Wilcoxon Testi: Sosyoekonomik grupların her çifti arasındaki p-değerlerini gösteren bir matris (çoklu karşılaştırmaya göre düzeltilmiş).
+5. YORUM VE ANALİZ: ANOVA ve Kruskal-Wallis, ikiden fazla grubun sürekli bir değişken üzerindeki etkisini incelemek için temel araçlardır. Post-hoc Gerekliliği: ANOVA veya Kruskal-Wallis testi sadece en az bir grup çiftinin birbirinden farklı olduğunu gösterir. Hangi çiftlerin farklı olduğunu bulmak için mutlaka post-hoc (Tukey veya pairwise Wilcoxon) testleri gereklidir. P-değeri Düzeltmesi: Birden fazla karşılaştırma yapıldığında (örneğin 3 grup için 3 ikili karşılaştırma), tip I hata oranını kontrol etmek için p-değerlerinin düzeltilmesi (p.adjust.method = "BH") önemlidir.
+
+
