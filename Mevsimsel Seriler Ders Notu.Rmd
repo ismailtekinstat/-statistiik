@@ -1,0 +1,709 @@
+---
+output:
+  word_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r}
+## Mevsimsel Zaman Serileri
+```
+
+Mevsimsellik, bir zaman serisinde düzenli ve periyodik olarak tekrarlanan dalgalanmalardır. Bu dalgalanmalar günlük, haftalık, yıllık olabilmektedir.
+
+Kışın ısınma giderlerinin daha fazla olması, yazın soğutma ihtiyacının daha fazla olması
+
+Yaz tatili dönemleri, bayram tatilleri gibi dönemlerde turizm faaliyetlerinde yaşanan artışlar
+ 
+Yılın belirli zamanlarında üretilen mevsimler ürünlerin hasatları gibi örnekler verilebilir.
+
+Mevsimsel zaman serilerine örnek olarak bir rasgele üretilmiş veri setini inceleyelim.
+
+
+```{r}
+# Gerekli kütüphaneleri yükle
+if (!require("forecast")) install.packages("forecast")
+if (!require("tseries")) install.packages("tseries")
+if (!require("ggplot2")) install.packages("ggplot2")
+
+library(forecast)
+library(tseries)
+library(ggplot2)
+```
+
+
+```{r}
+# Seed ayarı (tekrarlanabilirlik için)
+set.seed(123)
+
+# Model parametreleri
+phi1 <- 1.7   # Xt-2 katsayısı
+phi2 <- -0.7  # Xt-4 katsayısı
+n <- 1000     # Gözlem sayısı
+sigma <- 1    # Hata terimi standart sapması
+
+# SAR2(2) modeli için rasgele süreç oluşturma fonksiyonu
+generate_sar2 <- function(n, phi1, phi2, sigma = 1) {
+  X <- numeric(n)
+  
+  # İlk 4 değeri rasgele oluştur
+  X[1:4] <- rnorm(4, 0, sigma)
+  
+  # SAR2(2) modeli: Xt = 1.7*Xt-2 - 0.7*Xt-4 + εt
+  for (t in 5:n) {
+    X[t] <- phi1 * X[t-2] + phi2 * X[t-4] + rnorm(1, 0, sigma)
+  }
+  
+  return(X)
+}
+
+# Veri üretimi
+X <- generate_sar2(n, phi1, phi2, sigma)
+
+# Zaman serisi nesnesi oluştur
+ts_data <- ts(X)
+
+# Temel istatistikler
+cat("SAR2(2) MODEL ANALİZİ\n")
+cat("=====================\n")
+cat("Model: Xt =", phi1, "* Xt-2 +", phi2, "* Xt-4 + εt\n")
+cat("Gözlem sayısı:", n, "\n")
+cat("Ortalama:", round(mean(X), 4), "\n")
+cat("Standart Sapma:", round(sd(X), 4), "\n")
+cat("Varyans:", round(var(X), 4), "\n\n")
+```
+
+
+```{r}
+# Grafikler için layout ayarı
+par(mfrow = c(2, 2))
+
+# 1. Zaman serisi grafiği
+plot(ts_data, main = "SAR2(2) Zaman Serisi\nXt = 1.7*Xt-2 - 0.7*Xt-4 + εt", 
+     xlab = "Zaman", ylab = "Deger", col = "blue", lwd = 1)
+grid()
+
+# 2. ACF (Otokorelasyon Fonksiyonu)
+acf(X, lag.max = 50, main = "ACF - Otokorelasyon Fonksiyonu")
+
+# 3. PACF (Kısmi Otokorelasyon Fonksiyonu)
+pacf(X, lag.max = 50, main = "PACF - Kısmi Otokorelasyon Fonksiyonu")
+
+# 4. Histogram
+hist(X, breaks = 30, prob = TRUE, main = "Veri Dağılımı", 
+     xlab = "Deger", ylab = "Yoğunluk", col = "lightblue")
+lines(density(X), col = "red", lwd = 2)
+grid()
+
+
+# Layout'u sıfırla
+par(mfrow = c(1, 1))
+```
+2 ve 4 gecikmeli terimler, seride 4 periyotluk yani mevsimsel bir döngü oluşturmaktadır.
+
+Acf Grafiği:
+Otokorelasyonlar zamanla azalıyor ama tamamen sıfıra gitmemektedir. Mevsimsel AR yapısı grafikle doğrulandığı söylenebilir. 2 periyotluk güçlü bir bağlantı bulunmaktadır. Lag 2 de yüksek pozitif otokorelasyon, Lag 4 de negatif otokorelasyon ve tekrar Lag 6 da pozitif otokorelasyon görülüyor. Modelin tekrarlı mevsimselliğini doğrulamaktadır.
+
+PACF Grafiği:
+
+Lag 2 ve Lag 4 de keskin düşüşlerin yaşandığı görülüyor. Lag 4 sonrası ise sınırların arasında kaldığı yani önemsiz kısmi otokorelasyon değerlerinin yer aldığı görülür. PACF, tam olarak lag 2 ve 4'te "kesiliyor" - bu SAR2(2) modelinin özelliğidir.
+
+
+## Modelin Karakteristik Kökleri ve Durağanlık İncelenmesi 
+
+```{r}
+# Teorik analiz
+cat("TEORİK ANALİZ\n")
+cat("=============\n")
+cat("Karakteristik denklem: r⁴ -", phi1, "r² -", phi2, "= 0\n")
+# Karakteristik denklemin kökleri
+a <- 1
+b <- -phi1
+c <- -phi2
+
+# İkinci dereceden denklem çözümü (r² için)
+discriminant <- b^2 - 4*a*c
+root1 <- (-b + sqrt(discriminant)) / (2*a)
+root2 <- (-b - sqrt(discriminant)) / (2*a)
+
+cat("r² kökleri:", round(root1, 4), "ve", round(root2, 4), "\n")
+
+
+# İstatistiksel testler
+cat("İSTATİSTİKSEL TESTLER\n")
+cat("=====================\n")
+
+
+
+# ADF testi (Durağanlık testi)
+adf_test <- adf.test(X)
+cat("ADF Testi:\n")
+cat("ADF İstatistigi:", round(adf_test$statistic, 4), "\n")
+cat("p-degeri:", round(adf_test$p.value, 4), "\n")
+cat("Sonuc:", ifelse(adf_test$p.value < 0.05, "Seri duragandır", "Seri duragan degildir"), "\n\n")
+```
+```{r}
+# Mevsimsel fark alma ile durağanlaştırma
+cat("MEVSİMSEL FARK İLE DURAGANLAŞTIRMA\n")
+cat("===================================\n")
+
+# Mevsimsel fark alma (seasonal difference)
+# SAR2(2) modelinde mevsim periyodu = 2
+X_diff <- diff(X, lag = 2)
+
+cat("Mevsimsel fark sonrası istatistikler:\n")
+cat("Ortalama:", round(mean(X_diff), 4), "\n")
+cat("Standart Sapma:", round(sd(X_diff), 4), "\n")
+cat("Varyans:", round(var(X_diff), 4), "\n\n")
+
+# Mevsimsel fark sonrası ADF testi
+adf_test_diff <- adf.test(na.omit(X_diff))
+cat("MEVSİMSEL FARK SONRASI ADF Testi:\n")
+cat("ADF İstatistiği:", round(adf_test_diff$statistic, 4), "\n")
+cat("p-degeri:", round(adf_test_diff$p.value, 4), "\n")
+cat("Sonuc:", ifelse(adf_test_diff$p.value < 0.05, "Seri duragandır", "Seri duragan değildir"), "\n\n")
+```
+```{r}
+# Mevsimsel fark sonrası model uyumu
+cat("MEVSİMSEL FARK SONRASI MODEL UYUMU:\n")
+cat("===================================\n")
+
+# Mevsimsel ARIMA modeli - SARIMA(0,1,0)(2,0,0)[2]
+sarima_model <- arima(X, order = c(0, 0, 0), seasonal = list(order = c(2, 1, 0), period = 2))
+cat("SARIMA(0,0,0)(2,1,0)[2] model katsayıları:\n")
+print(round(sarima_model$coef, 4))
+
+# Alternatif: Auto SARIMA
+auto_sarima <- auto.arima(X, seasonal = TRUE, stepwise = FALSE, approximation = FALSE)
+cat("\nAuto SARIMA model önerisi:", arimaorder(auto_sarima), "\n")
+
+# Model karşılaştırma
+cat("\nModel Karşılaştırması (AIC):\n")
+cat("SARIMA(0,0,0)(2,1,0)[2] AIC:", round(sarima_model$aic, 2), "\n")
+cat("Auto SARIMA AIC:", round(auto_sarima$aic, 2), "\n")
+
+# Mevsimsel fark sonrası grafikler
+par(mfrow = c(2, 2))
+
+# Orijinal vs Mevsimsel fark serisi
+plot(ts(X), main = "Orijinal Seri\n(DuraGan Değil)", 
+     xlab = "Zaman", ylab = "Değer", col = "red")
+grid()
+
+plot(ts(X_diff), main = "Mevsimsel Fark Sonrası\n(Lag=2)", 
+     xlab = "Zaman", ylab = "Δ²X", col = "blue")
+grid()
+
+# ACF ve PACF mevsimsel fark sonrası
+acf(na.omit(X_diff), main = "ACF - Mevsimsel Fark Sonrası")
+pacf(na.omit(X_diff), main = "PACF - Mevsimsel Fark Sonrası")
+
+par(mfrow = c(1, 1))
+```
+
+## Otokorelasyon Test
+
+```{r}
+# Ljung-Box testi (Otokorelasyon testi)
+lb_test <- Box.test(X, lag = 50, type = "Ljung-Box")
+cat("Ljung-Box Testi (lag=10):\n")
+cat("X² İstatistigi:", round(lb_test$statistic, 4), "\n")
+cat("p-degeri:", round(lb_test$p.value, 4), "\n")
+cat("Sonuc:", ifelse(lb_test$p.value < 0.05, "Otokorelasyon var", "Otokorelasyon yok"), "\n\n")
+```
+SAR2(2) modeli zaten otokorelasyonlu bir model. Gecikmeler arasında otokorelasyon bulunmaktadır. Bu da modelin yapısından kaynaklıdır.
+
+
+```{r}
+# Kalıntı analizi - TAMAMLANDI
+cat("\nKALINTI ANALİZİ - TAM SONUÇLAR\n")
+cat("===============================\n")
+
+# Kalıntıları elde et
+residuals_sarima <- residuals(sarima_model)
+
+# Kalıntı istatistikleri
+cat("Kalıntı Ortalaması:", round(mean(residuals_sarima), 6), "\n")
+cat("Kalıntı Standart Sapması:", round(sd(residuals_sarima), 4), "\n")
+cat("Kalıntı Varyansı:", round(var(residuals_sarima), 4), "\n\n")
+```
+
+
+```{r}
+# Normallik testi
+shapiro_test <- shapiro.test(residuals_sarima[1:min(5000, length(residuals_sarima))])
+cat("Shapiro-Wilk Normallik Testi:\n")
+cat("W İstatistiği:", round(shapiro_test$statistic, 4), "\n")
+cat("p-degeri:", format.pval(shapiro_test$p.value, digits = 4), "\n")
+cat("Sonuc:", ifelse(shapiro_test$p.value < 0.05, 
+                     "Kalıntılar normal değil", 
+                     "Kalıntılar normal"), "\n\n")
+```
+
+
+```{r}
+# Ljung-Box testi (kalıntılarda otokorelasyon kontrolü)
+lb_test <- Box.test(residuals_sarima, lag = 10, type = "Ljung-Box")
+cat("Ljung-Box Testi (Kalıntılar):\n")
+cat("X² İstatistiği:", round(lb_test$statistic, 4), "\n")
+cat("p-degeri:", round(lb_test$p.value, 4), "\n")
+cat("Sonuc:", ifelse(lb_test$p.value < 0.05, 
+                     "✗ Kalıntılarda otokorelasyon VAR - Model YETERSİZ",
+                     "✓ Kalıntılarda otokorelasyon YOK - Model YETERLİ"), "\n\n")
+```
+
+
+```{r}
+# Çarpıklık ve basıklık
+# Çarpıklık (Skewness) hesaplama
+skewness_calc <- function(x) {
+  n <- length(x)
+  mean_x <- mean(x)
+  sd_x <- sd(x)
+  (sum((x - mean_x)^3) / n) / (sd_x^3)
+}
+
+# Basıklık (Kurtosis) hesaplama
+kurtosis_calc <- function(x) {
+  n <- length(x)
+  mean_x <- mean(x)
+  sd_x <- sd(x)
+  (sum((x - mean_x)^4) / n) / (sd_x^4)
+}
+
+skew_val <- skewness_calc(residuals_sarima)
+kurt_val <- kurtosis_calc(residuals_sarima)
+
+cat("Çarpıklık (Skewness):", round(skew_val, 4), "\n")
+cat("Basıklık (Kurtosis):", round(kurt_val, 4), "\n")
+cat("Normal dağılım için: Çarpıklık ≈ 0, Basıklık ≈ 3\n")
+
+# Pratik normallik değerlendirmesi
+if (abs(skew_val) < 0.5 & abs(kurt_val - 3) < 1) {
+  cat("✓ Kalıntılar pratikte normal kabul edilebilir\n")
+} else {
+  cat("✗ Kalıntılar normal dağılımdan uzak\n")
+}
+```
+
+
+```{r}
+# Görsel normallik kontrolü
+par(mfrow = c(2, 2))
+
+# 1. Q-Q Plot
+qqnorm(residuals_sarima, main = "Q-Q Plot - Kalıntılar")
+qqline(residuals_sarima, col = "red")
+
+# 2. Histogram
+hist(residuals_sarima, breaks = 30, prob = TRUE, 
+     main = "Kalıntıların Dağılımı", 
+     xlab = "Kalıntı Değerleri", col = "lightblue")
+curve(dnorm(x, mean = mean(residuals_sarima), sd = sd(residuals_sarima)), 
+      add = TRUE, col = "red", lwd = 2)
+legend("topright", legend = c("Kalıntılar", "Normal"), 
+       fill = c("lightblue", "red"), cex = 0.7)
+
+# 3. Kalıntıların zaman serisi
+plot(ts(residuals_sarima), main = "Kalıntılar - Zaman Serisi", 
+     ylab = "Kalıntılar", xlab = "Zaman", col = "blue")
+abline(h = 0, col = "red", lwd = 2)
+grid()
+
+# 4. Kalıntıların ACF'si
+acf(residuals_sarima, main = "Kalıntıların ACF'si", 
+    lag.max = 20)
+
+par(mfrow = c(1, 1))
+
+```
+
+## Toplamsal ve Çarpımsal Ayrıştırma
+
+mevsimsel dalga büyüyor ise çarpımsal, mevsimsel dalga sabit ise toplamsal ayrıştırma yapılır.
+
+```{r}
+set.seed(123)
+aylar <- 1:48
+
+temel_trend <- 100 + 0.5 * aylar 
+#Sabit bir başlangıç (100) + doğrusal artış (0.5 * aylar) 
+#Toplamsal etki: Her ay 0.5 birim ekleniyor
+
+mevsimsel_etki <- 20 * sin(2 * pi * aylar / 12) 
+rastgele_etki <- rnorm(48, 0, 5)
+
+#Ortalama 0, standart sapma 5 olan normal dağılım
+
+#Toplamsal etki: Trend + mevsimsel değere ± birimler ekleniyor
+
+mevsimsel_seri <- temel_trend + mevsimsel_etki + rastgele_etki
+mevsimsel_ts <- ts(mevsimsel_seri, start = c(2020, 1), frequency = 12)
+plot(mevsimsel_ts)
+
+```
+Gözlemlenen (Observed)
+
+Orijinal zaman serisini gösteriyor.
+
+2020-2024 yılları arasında belirgin bir mevsimsel dalgalanma ve artış trendi var.
+
+Verilerde düzenli periyotlarla tekrarlanan yükseliş ve düşüşler mevcut.
+
+Trend
+
+Uzun vadeli eğilimi gösteriyor
+
+Zaman içinde istikrarlı bir artış trendi var
+
+Mevsimsel dalgalanmalardan arındırılmış temel eğilim
+
+
+Mevsimsel (Seasonal)
+
+Düzenli olarak tekrarlanan mevsimsel deseni gösteriyor
+
+Sabit periyotlarla (muhtemelen yıllık) benzer dalgalanma desenleri
+
+Mevsimsel bileşenin genliği zamanla değişmiyor - bu çarpımsal modelin karakteristiği
+
+
+
+Rastgele (Random) 
+
+Açıklanamayan, düzensiz varyasyonlar
+
+Trend ve mevsimsellikle açıklanamayan kısım
+
+
+
+Eğer çarpımsal model olsaydı
+
+```{r}
+# ÇARPIMSAL model örneği:
+set.seed(123)
+aylar <- 1:48
+temel_trend <- 100 + 0.5 * aylar
+mevsimsel_etki <- 1 + 0.2 * sin(2 * pi * aylar / 12)  # 0.8-1.2 arası
+rastgele_etki <- 1 + rnorm(48, 0, 0.1)  # 0.9-1.1 arası
+
+# ÇARPIMSAL model:
+mevsimsel_seri_carpim <- temel_trend * mevsimsel_etki * rastgele_etki
+mevsimsel_ts_carpim <- ts(mevsimsel_seri_carpim, start = c(2020, 1), frequency = 12)
+
+# Karşılaştırma
+par(mfrow = c(1, 2))
+plot(mevsimsel_ts, main = "TOPLAMSAL Model\n(Trend + Mevsimsel + Gurultu)")
+plot(mevsimsel_ts_carpim, main = "CARPIMSAL Model\n(Trend Mevsimsel Gurultu)")
+```
+
+                 	    Toplamsal Model	                    Çarpımsal Model
+  Mevsimsel           	Sabit	                         Trendle birlikte artar
+  Formül            	T + S + R                            	T × S × R
+  Mevsimsel etki	    Mutlak birimler	                       Yüzdesel etki
+  Uygun olduğu durum	Mevsimsel dalgalanmalar sabit	   Mevsimsel dalgalanmalar trendle                                                                      artıyor
+
+
+
+```{r}
+# Bileşenleri ayrıştırma
+library(forecast)
+
+# Örnek seri oluşturma
+set.seed(123)
+t <- 1:60
+trend_bilesen <- 50 + 0.8 * t
+mevsimsel_bilesen <- 15 * sin(2 * pi * t / 12)
+rastgele_bilesen <- rnorm(60, 0, 8)
+
+tam_seri <- trend_bilesen + mevsimsel_bilesen + rastgele_bilesen
+tam_seri_ts <- ts(tam_seri, start = c(2019, 1), frequency = 12)
+
+# Bileşenleri görselleştirme
+par(mfrow = c(2, 2))
+plot(trend_bilesen, type = "l", main = "Trend Bileseni", ylab = "Deger") 
+#Trend Bileşeni:Verideki uzun vadeli artış veya azalış eğilimi
+
+plot(mevsimsel_bilesen, type = "l", main = "Mevsimsel Bilesen", ylab = "Deger")
+#Sabit periyotlarla tekrarlanan düzenli dalgalanmalar
+
+plot(rastgele_bilesen, type = "l", main = "Rastgele Bilesen", ylab = "Deger")
+#Açıklanamayan, rastgele varyasyon
+
+plot(tam_seri_ts, main = "Tam Seri", ylab = "Deger")
+```
+Gözlemlenen (Observed)
+
+Orijinal zaman serisini gösteriyor.
+
+2020-2024 yılları arasında belirgin bir mevsimsel dalgalanma ve artış trendi var.
+
+Verilerde düzenli periyotlarla tekrarlanan yükseliş ve düşüşler mevcut.
+
+Trend
+
+Uzun vadeli eğilimi gösteriyor
+
+Zaman içinde istikrarlı bir artış trendi var
+
+Mevsimsel dalgalanmalardan arındırılmış temel eğilim
+
+
+Mevsimsel (Seasonal)
+
+Düzenli olarak tekrarlanan mevsimsel deseni gösteriyor
+
+Sabit periyotlarla (muhtemelen yıllık) benzer dalgalanma desenleri
+
+Mevsimsel bileşenin genliği zamanla değişmiyor - bu çarpımsal modelin karakteristiği
+
+
+
+Rastgele (Random) 
+
+Açıklanamayan, düzensiz varyasyonlar
+
+Trend ve mevsimsellikle açıklanamayan kısım
+
+
+
+## Mevsimsel Düzeltme
+
+Mevsimsel düzeltme, bir zaman serisinden mevsimsel bileşeni çıkararak mevsimsiz (seasonally adjusted) bir seri elde etme işlemidir.
+
+Mevsimsel etkilerden arındırılmış trendi gözlemlemek,
+Farklı dönemleri mevsimsel etkilerden arındırarak karşılaştırmak,
+Mevsimsel etkileri elimine ederek daha doğru tahminler yapmak gibi amaçlarla yapılabilir.
+
+## Mevsimsel Düzeltme Yöntemleri
+
+## 1) Klasik Ayrıştırma Yöntemi (Classical Decomposition)
+
+Hareketli ortalamayla tahmin edilir. Her mevsim için ortalama sapma hesaplanır. Orijinal seriden mevsimsel bileşen çıkarılır
+
+```{r}
+# Klasik ayrıştırma
+klasik_ayristirma <- decompose(mevsimsel_ts)
+
+# Sonuçları görüntüleme
+print(klasik_ayristirma$seasonal)  # Mevsimsel bileşen
+print(klasik_ayristirma$trend)     # Trend bileşeni
+print(klasik_ayristirma$random)    # Rastgele bileşen
+
+# Mevsimsiz seri
+mevsimsiz_klasik <- mevsimsel_ts - klasik_ayristirma$seasonal
+
+# Görselleştirme
+plot(klasik_ayristirma)
+```
+Basit ve anlaşılır
+
+Hesaplaması kolay
+
+Görsel olarak net olması avantajları arasındadır.
+
+
+Serinin uçlarında kayıp olur
+
+Doğrusal trend varsayar
+
+Ani değişimlere duyarlı olması ise dezavantajları arasında sıralanabilir.
+
+## 2) STL Yöntemi (Seasonal and Trend decomposition using Loess)
+
+Mevsimsel desende değişime izin verir. Aykırı değerlere karşı dayanıklı
+
+
+```{r}
+# STL ayrıştırma
+stl_ayristirma <- stl(mevsimsel_ts, s.window = "periodic")
+
+# Sonuçları inceleme
+#print(stl_ayristirma$time.series)
+
+# Mevsimsiz seri
+mevsimsiz_stl <- seasadj(stl_ayristirma)
+
+# Görselleştirme
+plot(stl_ayristirma, main = "STL Ayrıştırma")
+```
+
+Esnek ve güçlü
+
+Mevsimsel desende değişime izin verir
+
+Aykırı değerlere dayanıklıdır.
+
+
+Hesaplama yoğundur ve Parametre seçimi gerektirir.
+
+
+## Mevsimsellik Tespiti ve Görselleştirme
+
+Grafiksel Yöntemler
+
+```{r}
+library(ggplot2)
+library(forecast)
+
+# Temel zaman serisi grafiği
+autoplot(mevsimsel_ts) +
+  ggtitle("Zaman Serisi Grafiği") +
+  ylab("Değer") +
+  xlab("Zaman")
+
+# Mevsimsel alt grafikler
+ggseasonplot(mevsimsel_ts, year.labels = TRUE) +
+  ggtitle("Mevsimsel Alt Grafikler")
+
+# Mevsimsel kutu grafikleri
+ggsubseriesplot(mevsimsel_ts) +
+  ggtitle("Mevsimsel Kutu Grafikleri")
+
+# Aylık/çeyreklik dağılımlar
+boxplot(mevsimsel_ts ~ cycle(mevsimsel_ts),
+        main = "Aylara Göre Dağılım",
+        xlab = "Ay", ylab = "Değer")
+```
+
+İstatistiksel Yöntemler
+
+```{r}
+# Otokorelasyon fonksiyonu (ACF)
+acf(mevsimsel_ts, main = "ACF - Mevsimsel Seri")
+
+# Kısmi otokorelasyon fonksiyonu (PACF)
+pacf(mevsimsel_ts, main = "PACF - Mevsimsel Seri")
+
+# Mevsimsel güç testi
+library(forecast)
+mevsimsel_test <- nsdiffs(mevsimsel_ts)
+cat("Mevsimsel fark sayısı:", mevsimsel_test, "\n")
+
+# Mevsimsel güç ölçümü
+mevsimsel_guc <- function(seri) {
+  ayrisma <- decompose(seri)
+  mevsimsel_var <- var(ayrisma$seasonal, na.rm = TRUE)
+  rastgele_var <- var(ayrisma$random, na.rm = TRUE)
+  return(mevsimsel_var / (mevsimsel_var + rastgele_var))
+}
+
+cat("Mevsimsel guc:", mevsimsel_guc(mevsimsel_ts), "\n")
+```
+
+Gerçek Veri Uygulaması: Airline Passengers
+
+```{r}
+# Airline Passenger verisi
+data(AirPassengers)
+ap <- AirPassengers
+
+# Temel analiz
+cat("Seri uzunluğu:", length(ap), "\n")
+cat("Frekans:", frequency(ap), "\n")
+cat("Başlangıc:", start(ap), "\n")
+cat("Bitis:", end(ap), "\n")
+
+# Temel istatistikler
+summary(ap)
+
+# Mevsimsellik analizi
+par(mfrow = c(2, 2))
+plot(ap, main = "Orijinal Seri", ylab = "Yolcu Sayısı")
+acf(ap, main = "ACF - Airline Passengers")
+pacf(ap, main = "PACF - Airline Passengers")
+monthplot(ap, main = "Aylık Dağılım")
+
+# STL ayrıştırma
+ap_stl <- stl(ap, s.window = "periodic")
+plot(ap_stl, main = "Airline Passengers - STL Ayrıştırma")
+
+# Mevsimsiz seri
+ap_mevsimsiz <- seasadj(ap_stl)
+
+# Karşılaştırma
+par(mfrow = c(1, 2))
+plot(ap, main = "Orijinal Seri", ylab = "Yolcu Sayısı")
+plot(ap_mevsimsiz, main = "Mevsimsiz Seri", ylab = "Yolcu Sayısı")
+
+# Mevsimsel etkinin büyüklüğü
+mevsimsel_etki <- ap - ap_mevsimsiz
+cat("Ortalama mevsimsel etki:", mean(mevsimsel_etki), "\n")
+cat("Maksimum mevsimsel etki:", max(mevsimsel_etki), "\n")
+cat("Minimum mevsimsel etki:", min(mevsimsel_etki), "\n")
+```
+## Yöntem Karşılaştırması ve Seçim Kriterleri
+
+Yöntem Karşılaştırması
+
+```{r}
+# Farklı yöntemlerle mevsimsel düzeltme
+klasik_mevsimsiz <- decompose(mevsimsel_ts)
+stl_mevsimsiz <- stl(mevsimsel_ts, s.window = "periodic")
+
+# Karşılaştırma metrikleri
+karsilastirma <- data.frame(
+  Yontem = c("Orijinal", "Klasik", "STL"),
+  Ortalama = c(mean(mevsimsel_ts), 
+               mean(mevsimsel_ts - klasik_mevsimsiz$seasonal, na.rm = TRUE),
+               mean(seasadj(stl_mevsimsiz))),
+  Varyans = c(var(mevsimsel_ts),
+              var(mevsimsel_ts - klasik_mevsimsiz$seasonal, na.rm = TRUE),
+              var(seasadj(stl_mevsimsiz))),
+  Mevsimsel_Guc = c(mevsimsel_guc(mevsimsel_ts),
+                    mevsimsel_guc(mevsimsel_ts - klasik_mevsimsiz$seasonal),
+                    mevsimsel_guc(seasadj(stl_mevsimsiz)))
+)
+
+print(karsilastirma)
+```
+
+Seriyi mutlaka grafikle inceleyin
+
+ACF ve mevsimsel grafiklerle doğrulayın
+
+Veri büyüklüğü ve karmaşıklığına uygun yöntem kullanın
+
+Mevsimsiz serinin anlamını anlayın
+
+Farklı yöntemleri karşılaştırın
+
+Sık Yapılan Hatalar
+
+Mevsimsellik yoksa düzeltme yapmayın
+
+Zaman serisi frekansını yanlış belirleme
+
+Aykırı değerleri dikkate alın
+
+Her yöntemin varsayımlarını kontrol edin
+
+Mevsimsiz seriyi orijinal seri gibi yorumlama
+
+
+## Mevsimsel Fark Alma
+
+```{r}
+# Mevsimsel fark alma
+mevsimsel_fark_seri <- diff(mevsimsel_ts, lag = 12)
+
+# Görselleştirme
+library(forecast)
+ggtsdisplay(mevsimsel_ts, main = "Orijinal Seri")
+ggtsdisplay(mevsimsel_fark_seri, main = "Mevsimsel Fark Alınmış Seri")
+
+# Otokorelasyon kontrolü
+Acf(mevsimsel_ts, main = "Orijinal Seri ACF")
+Acf(mevsimsel_fark_seri, main = "Mevsimsel Fark ACF")
+```
+
+
+
+
+
+
+
+
+
+

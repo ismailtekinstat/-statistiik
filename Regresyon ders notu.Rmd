@@ -1,0 +1,484 @@
+---
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+## VARSAYIMLARIN TEORİK TEMELLERİ
+##1. DOĞRUSALLIK VARSAYIMI
+  Bağımlı değişken ile bağımsız değişkenler arasında doğrusal ilişki olmalı
+
+## 2. HATA TERİMLERİNİN BAĞIMSIZLIĞI
+  Hata terimleri birbirinden bağımsız olmalı (otokorelasyon yok)
+
+## 3. SABIT VARYANS (HOMOSCEDASTICITY)
+  Hata terimlerinin varyansı sabit olmalı
+
+## 4. NORMALLIK
+  Hata terimleri normal dağılmalı
+
+## 5. ÇOKLU DOĞRUSALLIĞIN OLMAMASI
+  Bağımsız değişkenler arasında yüksek korelasyon olmamalı
+
+##6. AYKIRI DEĞERLERİN OLMAMASI
+  Uç değerler modeli etkilememeli
+
+Gerekli Paketler
+
+```{r}
+# Gerekli paketleri yükleme
+#install.packages(c("ggplot2", "car", "lmtest", "MASS", "nortest", 
+                 #  "ggpubr", "dplyr", "broom", "corrplot"))
+
+
+library(ggplot2)    # Gelişmiş grafikler için
+library(car)        # VIF ve diğer regresyon tanı testleri
+library(lmtest)     # Lagrange Multiplier testleri
+library(MASS)       # Robust regresyon için
+library(nortest)    # Normallik testleri
+library(ggpubr)     # Publication-ready grafikler
+library(dplyr)      # Veri manipülasyonu
+library(broom)      # Model çıktılarını düzenleme
+library(corrplot)   # Korelasyon matrisi görselleştirme
+
+# örnek olarak mtcars kullanılacak
+data(mtcars)
+```
+  mtcars veri seti motor trend dergisinden 1974 yılına ait 32 otomobilin teknik özelliklerini içerir
+
+  Bağımlı değişken: mpg (miles per gallon - yakıt verimliliği)
+
+  Bağımsız değişkenler: wt (ağırlık), hp (beygir gücü), qsec (çeyrek mil süresi), am (vites tipi)
+
+
+
+## Temel Regresyon Modeli
+
+```{r}
+# Temel regresyon modeli
+model <- lm(mpg ~ wt + hp + qsec + am, data = mtcars)
+summary(model)
+```
+lm() fonksiyonu doğrusal regresyon modeli oluşturur
+
+Model: mpg = β₀ + β₁wt + β₂hp + β₃qsec + β₄am + ε
+
+summary() modelin detaylı istatistiklerini verir:
+
+R²: Modelin açıklayıcılık gücü (%84.97)
+
+Adjusted R²: Serbestlik derecesine göre düzeltilmiş R² (%82.65)
+
+F-statistic: Modelin genel anlamlılığı (p < 0.001)
+
+Coefficient p-values: Her değişkenin anlamlılığı
+
+
+## 1. DOĞRUSALLIK VARSAYIMI KONTROLÜ
+
+Görsel Kontrol: Artık vs Tahmin Değerleri Grafiği
+
+```{r}
+# Doğrusallık kontrolü - Artık vs Tahmin değerleri
+par(mfrow = c(2, 2))
+plot(model, which = 1:4)
+```
+## Residuals vs Fitted (Artıklar vs Tahmin Edilen Değerler)
+ 
+ Doğrusallık ve varyansın sabitliği (homoscedasticity) varsayımlarını kontrol ediliyor.
+
+  Artıklar (residuals) genel olarak yatay bir seyir içinde rastgele dağılmış gibi görünüyor. Bu, varyansın sabit olduğuna ve doğrusal ilişki varsayımının makul olduğuna dair bir işarettir. Kırmızı çizgi  yaklaşık olarak düz ve 0'ın etrafında seyrediyor, bu da iyi bir işaret. Ancak sağ uçta (yüksek tahmin edilen değerlerde) biraz daha fazla yayılma olabilir, bu da hafif bir heteroscedasticity (varyansın sabit olmaması) belirtisi olarak yorumlanabilir
+
+
+## Normal Q-Q (Kantil-Kantil)
+  Artıkların normal dağılıp dağılmadığını kontrol etmek amacıyla incelenir.
+
+  Noktalar, teorik normal dağılım çizgisi boyunca oldukça iyi uyum sağlıyor. Bu, artıkların normal dağıldığı varsayımının makul olduğunu gösteriyor. Grafiğin sağ üst ve sol alt uçlarında çizgiden çok hafif sapmalar var, ancak bunlar önemli bir sapma olarak görünmüyor.
+
+## Scale-Location (Ölçek-Yer)
+  Varyansın sabitliği varsayımını sınamak için bakılabilir.
+
+  Bu grafik, standartlaştırılmış artıkların karekökünün tahmin edilen değerlere karşı çizimidir. Yatay bir kırmızı çizgi ve noktaların yatay bir bantta dağılması varyansın sabit olduğunu gösterir. Bu grafikte de noktalar kabaca yatay bir bant oluşturuyor, bu da 1. grafikteki yorumu destekliyor. Kırmızı çizgi hafif bir artan eğilim gösterebilir, bu da tahmin değerleri arttıkça varyansın çok hafif artabileceğine işaret edebilir, ancak bu çok belirgin değidir.
+  
+## Residuals vs Leverage (Artıklar vs Etki Değeri)
+  Modeli etkileyen, uç değer (outlier) veya etkili gözlemleri (influential points) belirlemek amacıyla bakılablir.
+
+  Grafik, artıkların etki değerlerine (leverage) karşı çizimidir. "Cook's distance" eğrileri, gözlemlerin model üzerindeki etkisini gösterir.Merkezde kümelenmiş noktalar: Modeli fazla etkilemeyen gözlemler.
+
+  "Chrysler Imperial" ve "Toyota Corolla" etiketli noktalar: Bu gözlemler diğerlerinden ayrılmış durumda. Bunlar potansiyel etkili noktalar olabilir. Özellikle, Cook's distance eğrilerinin (kesikli çizgiler) dışına taşan noktalar, model parametrelerini ve tahminlerini önemli ölçüde etkileyebilecek "etkili gözlemler" olabilirler.
+
+  Bu iki araç (Chrysler Imperial ve Toyota Corolla), veri setindeki uç değerler olabilir ve modeli bu noktalar olmadan tekrar çalıştırıp sonuçların ne kadar değiştiğine bakmak faydalı olacaktır. 
+
+
+```{r}
+# Alternatif ggplot ile görselleştirme
+residual_data <- augment(model)
+
+ggplot(residual_data, aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  geom_smooth(method = "loess", se = FALSE, color = "blue") +
+  labs(title = "Artık vs Tahmin Degerleri - Dogrusallık Kontrolu",
+       x = "Tahmin Edilen Degerler", 
+       y = "Artıklar") +
+theme_minimal()
+```
+Kısmi Regresyon Grafikleri (Component + Residual Plots)
+
+```{r}
+# Kısmi regresyon grafikleri
+par(mfrow = c(2, 2))
+crPlots(model)
+```
+  Her bir bağımsız değişken için kısmi etkiyi gösterir. Mavi çizgi regresyon eğriidir.
+
+  İdeal durumda iki çizgi birbirine yakın seyretmesi gerekir. Eğer çizgiler birbirinden uzaklaşıyorsa dönüşüm gerekli olabilir.
+
+```{r}
+# Her değişken için ayrı scatter plot
+ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "mpg vs wt")
+```
+
+
+```{r}
+ggplot(mtcars, aes(x = hp, y = mpg)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "mpg vs hp")
+```
+
+
+## 2. HATA TERİMLERİNİN BAĞIMSIZLIĞI KONTROLÜ
+## Durbin-Watson Testi
+
+```{r}
+# Durbin-Watson testi
+dw_test <- dwtest(model)
+print(dw_test)
+```
+H0: Otokorelasyon yok (artıklar bağımsız)
+
+H1: Otokorelasyon var
+
+<1.5: Pozitif otokorelasyon
+
+2.5: Negatif otokorelasyon
+
+p-value > 0.05: Otokorelasyon yok
+
+
+```{r}
+# Otokorelasyon fonksiyonu grafiği
+acf(residuals(model), main = "Artıkların ACF Grafiği")
+```
+
+## 3. SABIT VARYANS (HOMOSCEDASTICITY) KONTROLÜ
+## Görsel Kontrol: Scale-Location Plot
+
+```{r}
+# Scale-Location plot
+plot(model, which = 3)
+```
+
+
+```{r}
+# Alternatif ggplot ile
+ggplot(residual_data, aes(x = .fitted, y = sqrt(abs(.std.resid)))) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "loess", se = FALSE, color = "red") +
+  labs(title = "Scale-Location Plot - Sabit Varyans Kontrolu",
+       x = "Tahmin Edilen Degerler",
+       y = "√|Standardize Artıklar|") +
+  theme_minimal()
+```
+
+## Breusch-Pagan Testi
+
+```{r}
+# Breusch-Pagan testi
+bp_test <- bptest(model)
+print(bp_test)
+```
+H0: Sabit varyans (homoscedasticity)
+
+H1: Değişen varyans (heteroscedasticity)
+
+p-value > 0.05: H0 reddedilemez, varyans sabit
+
+p-value < 0.05: Heteroscedasticity var, dönüşüm gerek
+
+
+## 4. NORMALLIK VARSAYIMI KONTROLÜ
+## QQ Plot
+
+```{r}
+# Normal Q-Q plot
+plot(model, which = 2)
+```
+
+
+```{r}
+# ggplot ile QQ plot
+ggplot(residual_data, aes(sample = .std.resid)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "Normal Q-Q Plot - Normallik Kontrolu",
+       x = "Teorik Kantiller", 
+       y = "Orneklem Kantilleri") +
+  theme_minimal()
+```
+
+## Normallik Testleri
+
+
+```{r}
+# Shapiro-Wilk testi
+shapiro_test <- shapiro.test(residuals(model))
+print(shapiro_test)
+```
+H0: Veri normal dağılıma uyar
+
+H1: Normal dağılıma uymaz
+
+p-value > 0.05: Normal dağılım kabul edilir
+
+Küçük örneklemlerde (n < 50) güçlü test
+
+```{r}
+# Anderson-Darling testi
+ad_test <- ad.test(residuals(model))
+print(ad_test)
+```
+Büyük örneklemlerde tercih edilebilir.
+
+```{r}
+# Kolmogorov-Smirnov testi
+ks_test <- ks.test(residuals(model), "pnorm", 
+                   mean = mean(residuals(model)), 
+                   sd = sd(residuals(model)))
+print(ks_test)
+```
+
+
+```{r}
+# Histogram ve density plot
+ggplot(residual_data, aes(x = .resid)) +
+  geom_histogram(aes(y = ..density..), bins = 15, fill = "lightblue", 
+                 color = "black", alpha = 0.7) +
+  geom_density(color = "red", size = 1) +
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(residual_data$.resid), 
+                           sd = sd(residual_data$.resid)), 
+                color = "blue", size = 1, linetype = "dashed") +
+  labs(title = "Artıkların Dagılımı - Normallik KontrolU",
+       x = "Artıklar", 
+       y = "Yogunluk") +
+  theme_minimal()
+```
+
+## 5. ÇOKLU DOĞRUSALLIK KONTROLÜ
+## VIF (Variance Inflation Factor)
+
+```{r}
+# VIF değerleri
+vif_values <- vif(model)
+print(vif_values)
+```
+VIF < 5: Çoklu doğrusallık yok veya ihmal edilebilir
+
+VIF 5-10: Orta derecede çoklu doğrusallık
+
+VIF > 10: Ciddi çoklu doğrusallık problemi
+
+Tolerance = 1/VIF: 0.1'den küçükse problem var
+
+```{r}
+# VIF grafiği
+vif_data <- data.frame(
+  variables = names(vif_values),
+  vif = vif_values
+)
+
+ggplot(vif_data, aes(x = variables, y = vif, fill = vif > 10)) +
+  geom_bar(stat = "identity") +
+  geom_hline(yintercept = 5, linetype = "dashed", color = "orange") +
+  geom_hline(yintercept = 10, linetype = "dashed", color = "red") +
+  labs(title = "VIF Değerleri - Çoklu Dogrusallık Kontrolu",
+       x = "Degişkenler", 
+       y = "VIF Degeri") +
+  theme_minimal() +
+  scale_fill_manual(values = c("FALSE" = "lightblue", "TRUE" = "red"))
+```
+
+
+```{r}
+# Korelasyon matrisi
+correlation_matrix <- cor(mtcars[, c("mpg", "wt", "hp", "qsec", "am")])
+print(correlation_matrix)
+
+corrplot(correlation_matrix, method = "color", type = "upper", 
+         order = "hclust", tl.cex = 0.8, tl.col = "black")
+```
+Renk koyulaştıkça korelasyon artar
+
+Mavi: Pozitif korelasyon
+
+Kırmızı: Negatif korelasyon
+
+
+## 6. AYKIRI DEĞER VE ETKİLİ GÖZLEMLER KONTROLÜ
+## Leverage Değerleri
+
+```{r}
+# Leverage değerleri
+leverage <- hatvalues(model)
+influence_data <- data.frame(
+  observation = 1:length(leverage),
+  leverage = leverage
+)
+```
+
+
+```{r}
+# Leverage grafiği
+ggplot(influence_data, aes(x = observation, y = leverage)) +
+  geom_point() +
+  geom_hline(yintercept = 2*mean(leverage), linetype = "dashed", color = "red") +
+  geom_text(aes(label = ifelse(leverage > 2*mean(leverage), 
+                              as.character(observation), "")), 
+            vjust = -0.5) +
+  labs(title = "Leverage Degerleri",
+       x = "Gözlem Numarası", 
+       y = "Leverage Degeri") +
+  theme_minimal()
+```
+  Leverage (Etki Değeri): Bir gözlemin diğer gözlemlere göre ne kadar "uç" veya "sıra dışı" olduğunu ölçer. 0 ile 1 arasında değerler alır. Bir gözlemin diğerlerinden ne kadar uzak olduğunu gösterir.
+
+Yatay eksen: Gözlem numaraları (1'den 30'a kadar)
+
+Dikey eksen: Leverage değerleri (0'dan 0.5'e kadar)
+
+Kırmızı çizgi: Ortalama leverage değerini gösterir
+
+Kesim noktası: 2*(p+1)/n (p: parametre sayısı, n: örneklem)
+
+Çoğu gözlemin leverage değeri düşük (0.1 civarı)
+
+9 numaralı gözlem çok yüksek leverage değerine (0.4-0.5 civarı) sahip
+
+Yüksek leverage değeri, bu gözlemin model üzerinde potansiyel olarak yüksek etkisi olabileceğini gösterir
+
+Bu, 9 numaralı gözlemin diğerlerinden farklı özelliklere sahip olduğu ve regresyon modelini önemli ölçüde etkileyebileceği anlamına gelir. Sadece leverage aykırı değer göstermez diğer testlerle desteklemek gerekli olabilir.
+
+## Cook's Distance
+
+```{r}
+# Cook's distance
+cooks_d <- cooks.distance(model)
+cooks_data <- data.frame(
+  observation = 1:length(cooks_d),
+  cooks_distance = cooks_d
+)
+
+# Cook's distance grafiği
+ggplot(cooks_data, aes(x = observation, y = cooks_distance)) +
+  geom_point() +
+  geom_hline(yintercept = 4/(nrow(mtcars)), linetype = "dashed", color = "red") +
+  geom_text(aes(label = ifelse(cooks_distance > 4/(nrow(mtcars)), 
+                              as.character(observation), "")), 
+            vjust = -0.5) +
+  labs(title = "Cook's Distance Degerleri",
+       x = "Gozlem Numarası", 
+       y = "Cook's Distance") +
+  theme_minimal()
+```
+Cook's Distance: Bir gözlemin tüm regresyon modeli üzerindeki etkisini ölçer.
+Eşik değer: Genellikle 0.5 veya 1.0'ın üzerindeki değerler etkili gözlem olarak kabul edilir.
+
+17 ve 20 numaralı gözlemler bariz şekilde yüksek Cook's Distance değerlerine sahip (≈0.2)
+
+Diğer tüm gözlemlerin değerleri 0'a yakın
+
+17 ve 20 numaralı gözlemler etkili gözlemler olabilirler bu gözlemler çıkarıldığında regresyon modelinin katsayıları ve tahminleri önemli ölçüde değişebilir. Bu nedenle bu iki gözlem özellikle incelenmeli ve model üzerindeki etkileri değerlendirilmelidir.
+
+
+## Studentized Artıklar
+
+```{r}
+# Studentized artıklar
+studentized_resid <- rstudent(model)
+outlier_data <- data.frame(
+  observation = 1:length(studentized_resid),
+  studentized_residuals = studentized_resid
+)
+studentized_resid
+```
+|studentized artık| > 2: Potansiyel aykırı değer
+
+|studentized artık| > 3: Kesin aykırı değer
+
+Pozitif büyük: Gerçek değer tahmin edilenden çok büyük
+
+Negatif büyük: Gerçek değer tahmin edilenden çok küçük
+
+```{r}
+# Studentized artık grafiği
+
+library(ggplot2)
+library(broom)
+ggplot(outlier_data, aes(x = observation, y = studentized_residuals)) +
+  geom_point() +
+  geom_hline(yintercept = c(-2, 2), linetype = "dashed", color = "red") +
+  geom_hline(yintercept = c(-3, 3), linetype = "dashed", color = "darkred") +
+  geom_text(
+    aes(label = ifelse(abs(studentized_residuals) > 2, as.character(observation), "")),
+    vjust = -0.5
+  ) +
+  labs(
+    title = "Studentized Artıklar - Aykırı Deger Kontrolu",
+    x = "Gozlem Numarası", 
+    y = "Studentized Artıklar"
+  ) +
+  theme_minimal()
+```
+
+Studentize Artık: Bir gözlemin ne kadar "aykırı" olduğunu ölçer. Standart artıkların standardize edilmiş halidir.
+
+Eşik değerleri: Genellikle ±2'nin dışındaki değerler potansiyel aykırı değer olarak kabul edilir.
+
+Kritik bulgular:
+
+17, 18 ve 20 numaralı gözlemler ±2 eşik değerini aşan yüksek studentize artık değerlerine sahip
+
+17 numara özellikle çok yüksek (>2) pozitif artık değerine sahip
+
+Diğer gözlemlerin çoğu -2 ile +2 aralığında
+
+17, 18 ve 20 numaralı gözlemler potansiyel aykırı değerler olabilirler. Bu gözlemlerin model tarafından iyi tahmin edilemediği ve veri setindeki diğer noktalardan farklı davrandığı anlamına gelir. Önceki Cook's Distance grafiğiyle tutarlı şekilde, 17 ve 20 numaralı gözlemler hem etkili hem de aykırı değerler olarak öne çıkıyor.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
