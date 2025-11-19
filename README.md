@@ -1,2 +1,3 @@
 # -Stat dersleri
-411 dersi vize için çalışma notebookları 
+4. Sınıf derslerim için çalışma notebookları
+
